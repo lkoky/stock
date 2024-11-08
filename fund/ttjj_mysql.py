@@ -6,7 +6,6 @@
 import sys
 # import execjs
 # import fire
-import pymongo
 from parsel import Selector
 import demjson3
 sys.path.append('..')
@@ -18,8 +17,20 @@ from configure.settings import DBSelector
 from common.BaseService import BaseService
 import loguru
 import re
+import random
+
 
 LOG = loguru.logger
+now = datetime.datetime.now()
+TODAY = now.strftime('%Y-%m-%d')
+_time = now.strftime('%H:%M:%S')
+
+try:
+    DB = DBSelector()
+    conn = DB.get_mysql_conn('db_fund', 'qq')
+    cursor = conn.cursor()
+except Exception as e:
+    print(e)
 
 
 class TTFund(BaseService):
@@ -37,13 +48,11 @@ class TTFund(BaseService):
                         'fof': 'fof',
                         '指数': 'zs',
                         '债券': 'zq',
-                        'etf': 'etf',
-
+                        'etf': 'etf'
                         }
         self.key = key
         self.date_format = datetime.datetime.now().strftime('%Y_%m_%d')
         # self.date_format = '2021_12_15'
-        self.doc = self.mongo()['db_stock']['ttjj_rank_{}'.format(self.date_format)]
 
     @property
     def headers(self):
@@ -60,9 +69,6 @@ class TTFund(BaseService):
             "User-Agent": "Mozilla/5.0 (Windows NT 6.1; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/85.0.4183.83 Safari/537.36",
         }
 
-    def mongo(self):
-        return DBSelector().mongo('qq')
-
     def rank(self):
         time_interval = 'jnzf'  # jnzf:今年以来 3n: 3年
 
@@ -77,21 +83,89 @@ class TTFund(BaseService):
         # 去年今日
         last_dt = td_dt - datetime.timedelta(days=365)
         last_str = datetime.datetime.strftime(last_dt, '%Y-%m-%d')
+        # 生成一个0到1之间的随机浮点数
+        random_number = random.random()
+
+        # 格式化随机数，保留16位小数
+        formatted_random_number = f"{random_number:.16f}"
+
         # rank_url = 'http://fund.eastmoney.com/data/rankhandler.aspx?op=ph&dt=kf&ft={0}&rs=&gs=0&sc={1}zf&st=desc&sd={2}&ed={3}&qdii=&tabSubtype=,,,,,&pi=1&pn=10000&dx=1'.format(
         #     ft, time_interval, last_str, td_str)
-        rank_url = 'http://fund.eastmoney.com/data/rankhandler.aspx?op=ph&dt=kf&ft={0}&rs=&gs=0&sc={1}&st=desc&sd={2}&ed={3}&qdii=&tabSubtype=,,,,,&pi=1&pn=10000&dx=1'.format(
-            ft, time_interval, last_str, td_str)
+        # 自定义，查询etf
+        # http://fund.eastmoney.com/data/rankhandler.aspx?op=ph&dt=fb&ft=ct&rs=&gs=0&sc=1yzf&st=desc&pi=1&pn=50&v=0.5488320266221767
+        if ft=="etf":
+            rank_url=("http://fund.eastmoney.com/data/rankhandler.aspx?op=ph&dt=fb&ft=ct&rs=&gs=0&sc=1yzf&st=desc&pi=1&pn=2000&dx=0&v={0}"
+                      .format(formatted_random_number))
+        else:
+            # http://fund.eastmoney.com/data/rankhandler.aspx?op=ph&dt=kf&ft=etf&rs=&gs=0&sc=jnzf&st=desc&sd=2023-11-08&ed=2024-11-07&qdii=&tabSubtype=,,,,,&pi=1&pn=10000&dx=1
+            rank_url = 'http://fund.eastmoney.com/data/rankhandler.aspx?op=ph&dt=kf&ft={0}&rs=&gs=0&sc={1}&st=desc&sd={2}&ed={3}&qdii=&tabSubtype=,,,,,&pi=1&pn=10000&dx=1&v={4}'.format(
+                ft, time_interval, last_str, td_str,formatted_random_number)
+        print("rank_url:",rank_url)
         content = self.get(url=rank_url)
-        print("content:",content)
+
         rank_data = self.parse(content)
         rank_list = self.key_remap(rank_data, key)
-        self.save_data(rank_list)
+        self.save_data(rank_list,key)
 
-    def save_data(self, rank_list):
+    def save_data(self, rank_list,type_):
+        # 清理数据
+        delete_sql="delete from db_ttjj_fund_ranking where fund_type=%s"
+        self.execute(delete_sql, (type_), conn, self.logger)
+
+        for rank in rank_list:
+            fund_type = rank.get("type")
+            update_date=rank.get("crawl_date")
+            fund_code = rank.get('基金代码')
+            fund_name = rank.get('基金简称')
+            fund_name_sx = rank.get('缩写')
+            fund_stat_date = rank.get('日期')
+            ass_net = self.convert(rank.get('单位净值'))
+            acc_net = self.convert(rank.get('累计净值'))
+            d_rate = self.convert(rank.get('日增长率(%)'))
+            w = self.convert(rank.get('近1周增幅'))
+            m = self.convert(rank.get('近1月增幅'))
+            m3 = self.convert(rank.get('近3月增幅'))
+            m6 = self.convert(rank.get('近6月增幅'))
+            y = self.convert(rank.get('近1年增幅'))
+            y2 = self.convert(rank.get('近2年增幅'))
+            y3 = self.convert(rank.get('近3年增幅'))
+            in_y = self.convert(rank.get('今年来'))
+            all_y = self.convert(rank.get('成立来'))
+            fund_create_date = rank.get('成立日期')
+
+            # if fund_stat_date=='' : continue
+            if fund_stat_date == '': fund_stat_date = '1900-01-01'
+
+            insert_data= 'INSERT INTO db_ttjj_fund_ranking (fund_type, update_date, fund_code, fund_name, fund_name_sx, fund_stat_date, ass_net, acc_net, d_rate, w, m, m3, m6, y, y2, y3, in_y, all_y, fund_create_date) \
+VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)'
+        # insert_data = 'insert into `{}` VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)'.format(TODAY)
+
+            self.execute(insert_data, (fund_type, update_date, fund_code, fund_name, fund_name_sx, fund_stat_date, ass_net, acc_net, d_rate, w, m, m3, m6, y, y2, y3, in_y, all_y, fund_create_date), conn, self.logger)
+
+    def execute(self, cmd, data, conn, logger=None):
+
+        cursor = conn.cursor()
+
+        if not isinstance(data, tuple):
+            data = (data,)
         try:
-            self.doc.insert_many(rank_list)
+            cursor.execute(cmd, data)
         except Exception as e:
-            print(e)
+            conn.rollback()
+            logger.error('执行数据库错误 {},{}'.format(e, cmd))
+            ret = None
+        else:
+            ret = cursor.fetchall()
+            conn.commit()
+
+        return ret
+
+    def convert(self, float_str):
+        try:
+            return_float = float(float_str)
+        except:
+            return_float = None
+        return return_float
 
     def parse(self, rp):
         # print(content)
@@ -110,9 +184,13 @@ class TTFund(BaseService):
                   '日增长率(%)', '近1周增幅', '近1月增幅', '近3月增幅', '近6月增幅', '近1年增幅', '近2年增幅', '近3年增幅',
                   '今年来', '成立来', '成立日期', '购买手续费折扣', '自定义', '手续费原价？', '手续费折后？',
                   '布吉岛1', '布吉岛2', '布吉岛3', '布吉岛4']
+        if self.key=='etf' :
+            colums = ['基金代码', '基金简称', '缩写', '日期', '单位净值', '累计净值', '近1周增幅', '近1月增幅', '近3月增幅', '近6月增幅', '近1年增幅', '近2年增幅',
+                      '近3年增幅',
+                      '今年来', '成立来', '成立日期', '购买手续费折扣', '自定义', '手续费原价？', '手续费折后？','布吉岛1'
+                      '类型', '布吉岛2']
         return_rank_data = []
         for rank in rank_data:
-            print("rank: ",rank)
             rand_dict = {}
             rand_dict['type'] = type_
             rand_dict['crawl_date'] = self.today
@@ -123,32 +201,11 @@ class TTFund(BaseService):
 
         return return_rank_data
 
-    def turnover_rate(self):
-        '''
-        换手率
-        http://api.fund.eastmoney.com/f10/JJHSL/?callback=jQuery18301549281364854147_1639139836416&fundcode={}&pageindex=1&pagesize=20&_=1639139836475
-        '''
-        self.DB = self.get_turnover_db()
-
-        for code in self.doc.find({'type': self.key}, {"_id": 0, '基金代码': 1}).sort([('_id', pymongo.ASCENDING)]):
-            # print(code)
-            if self.is_crawl(self.DB, code['基金代码'], 'code'):
-                continue
-
-            print("爬取{}".format(code['基金代码']))
-            self.__turnover_rate(code['基金代码'])
-
-    def is_crawl(self, db, code, cond):
-        return True if db.find_one({cond: code}) else False
-
     def __turnover_rate(self, code):
         url = 'http://api.fund.eastmoney.com/f10/JJHSL/?callback=jQuery18301549281364854147_1639139836416&fundcode={}&pageindex=1&pagesize=100&_=1639139836475'.format(
             code)
         ret_txt = self.get(url, _json=False)
         self.__parse_turnover_data(ret_txt, code)
-
-    def get_turnover_db(self):
-        return DBSelector().mongo('qq')['db_stock']['turnover_{}'.format(self.date_format)]
 
     def __parse_turnover_data(self, jquery_data, code):
         js_format = jquery_data[jquery_data.find('{'):jquery_data.rfind('}') + 1]
@@ -160,7 +217,7 @@ class TTFund(BaseService):
         turnover_rate_dict['update'] = datetime.datetime.now()
         self.DB.insert(turnover_rate_dict)
 
-    def fund_detail(self, db, code):
+    def fund_detail(self, code):
         url = 'http://fundf10.eastmoney.com/jbgk_{}.html'.format(code)
 
         def __get(url, headers, retry=5):
@@ -194,8 +251,25 @@ class TTFund(BaseService):
 
         content = __get(url, headers)
         built_date, scale = self.parse_detail_info(content)
-        db.insert_one(
-            {'成立日期': built_date, '规模': scale, '基金代码': code, 'type': self.key, 'update': datetime.datetime.now()})
+        # db.insert_one(
+        #     {'成立日期': built_date, '规模': scale, '基金代码': code, 'type': self.key, 'update': datetime.datetime.now()})
+        insert_sql="INSERT INTO db_ttjj_basic\
+                ( built_date, `scale`, fund_code, fund_type,scale_num,scale_stat_date)\
+                VALUES( %s, %s, %s, %s,%s,%s)"
+        if built_date=='' : built_date='1900-01-01'
+        # print(scale.find("亿"))
+        index=scale.find("亿")
+        scale_num=scale[0:index]
+        scale_num=float(scale_num.replace(',', ''))
+        match = re.search(r'.*?截止至：(\d{4}-\d{2}-\d{2})' ,scale)
+
+        if match:
+            # 提取匹配到的数字和日期
+            scale_stat_date = match.group(1)  # 截止日期
+        else:
+            scale_stat_date='1900-01-01'
+
+        self.execute(insert_sql,(built_date,scale,code,self.key,scale_num,scale_stat_date),conn,self.logger)
 
     def parse_detail_info(self, content):
 
@@ -213,21 +287,39 @@ class TTFund(BaseService):
     def update_basic_info(self):
         pass
 
-    def get_basic_db(self):
-        return DBSelector().mongo('qq')['db_stock']['ttjj_basic']
+    def check_content(self, content):
+        if content is None:
+            self.logger.error('获取内容为空')
+            return False
+        else:
+            return True
 
     def basic_info(self):
         '''
         基本数据
         '''
-        self.basic_DB = self.get_basic_db()
+        # self.basic_DB = self.get_basic_db()
+        query_sql='select fund_code from db_ttjj_fund_ranking where fund_type=%s'
+        result=self.execute(query_sql,(self.key),conn,self.logger)
 
-        for code in self.doc.find({'type': self.key}, {"_id": 0, '基金代码': 1}).sort([('_id', pymongo.ASCENDING)]):
-            if self.is_crawl(self.basic_DB, code['基金代码'], '基金代码'):
-                continue
+        # td_str = datetime.datetime.strftime(datetime.datetime.now(), '%Y-%m-%d')
+        # td_dt = datetime.datetime.strptime(datetime.datetime.now(), '%Y-%m-%d')
+        # 90日之前
+        last_dt = datetime.datetime.now() - datetime.timedelta(days=91)
+        last_str = datetime.datetime.strftime(last_dt, '%Y-%m-%d')
 
-            LOG.info("爬取{}".format(code['基金代码']))
-            self.fund_detail(self.basic_DB, code['基金代码'])
+        if self.check_content(result) :
+            for code in result :
+                q_sql="select count(1) from db_ttjj_basic where fund_code = %s and scale_stat_date > %s"
+                rt = self.execute(q_sql, (code[0],last_str), conn, self.logger)
+                if rt[0][0]>0 :
+                    continue
+                else:
+                    d_sql = "delete from db_ttjj_basic where fund_code=%s"
+                    self.execute(d_sql, (code[0]), conn, self.logger)
+
+                LOG.info("爬取{}".format(code[0]))
+                self.fund_detail(code[0])
 
     def convert_data_type(self):
         '''
@@ -240,44 +332,22 @@ class TTFund(BaseService):
                 p1=None
             self.doc.update_one({'_id':item['_id']},{'$set':{'成立来':p1}})
 
-
-    def get_fund(self,page):
-        # 获取所有的基金代码 查找定增基金
-        # http://fund.eastmoney.com/Data/Fund_JJJZ_Data.aspx?t=1&lx=1&letter=&gsid=&text=&sort=zdf,desc&page=5,200&dt=1640059130666&atfc=&onlySale=0
-
-        url='http://fund.eastmoney.com/Data/Fund_JJJZ_Data.aspx?t=1&lx=1&letter=&gsid=&text=&sort=zdf,desc&page={},200&dt=1640059130666&atfc=&onlySale=0'
-        content = self.get(url.format(page),_json=False)
-        print(content)
-        js_content = execjs.compile(content)
-        db = js_content.eval("db")
-        fund_list = db.get('datas', [])
-        # print(fund_list)
-        for item in fund_list:
-            name = item[1]
-            if re.search('定增',name):
-                print(name)
-
-
-    def get_funds(self):
-        for i in range(66):
-            self.get_fund(i)
-            time.sleep(1)
-
 def main(kind, option):
-    _dict = {1: '指数', 2: '股票', 3: '混合', 4: 'qdii', 5: 'lof', 6: 'fof', 7: '债券',8:'etf'}
+    #  不支撑
+    _dict = {1: '指数', 2: '股票', 3: '混合',4: '债券', 5: 'qdii',  6: 'fof',7: 'lof', 8:'etf'}
 
-    app = TTFund(key=_dict.get(kind, '股票'))  # key 基金类型，股票，混合，
+    app = TTFund(key=_dict.get(kind))  # key 基金类型，股票，混合，
 
     if option == 'basic':
-        LOG.info('获取{}排名'.format(_dict.get(kind)))
+        LOG.info('获取“{}”排名'.format(_dict.get(kind)))
         app.rank()
 
-    elif option == 'turnover':
-        LOG.info('获取换手率')
-        app.turnover_rate()
+    # elif option == 'turnover':
+    #     LOG.info('获取换手率')
+    #     app.turnover_rate()
 
     elif option == 'info':
-        LOG.info('获取基本信息')
+        LOG.info('获取<{}>基本信息'.format(_dict.get(kind)))
         app.basic_info()
 
     else:
@@ -289,5 +359,23 @@ if __name__ == '__main__':
     # app=TTFund()
     # app.convert_data_type()
 
-    main(kind=1,option='basic')
-    #main(kind=1, option='info')
+    # main(kind=1, option='basic')
+    # main(kind=1, option='info')
+    #
+    # main(kind=2,option='basic')
+    # main(kind=2, option='info')
+    #
+    # main(kind=3, option='basic')
+    # main(kind=3, option='info')
+    #
+    # main(kind=4, option='basic')
+    # main(kind=4, option='info')
+    #
+    # main(kind=5, option='basic')
+    # main(kind=5, option='info')
+    #
+    # main(kind=6, option='basic')
+    # main(kind=6, option='info')
+
+    # main(kind=8, option='basic')
+    main(kind=8, option='info')

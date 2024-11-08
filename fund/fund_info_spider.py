@@ -1,7 +1,7 @@
 import random
 import re
 import datetime
-import demjson
+import demjson3
 import requests
 import time
 import sys
@@ -186,7 +186,7 @@ class TencentFundSpider(BaseService):
                 self.logger.error('解析出错')
                 continue
 
-            js = demjson.decode(ret)  # 解析json的库
+            js = demjson3.decode(ret)  # 解析json的库
             query_string = js.get('data')
             time.sleep(5 * random.random())
 
@@ -225,7 +225,7 @@ class TencentFundSpider(BaseService):
 
         if search_str:
             s = search_str.group(1)
-            js_ = demjson.decode(s)
+            js_ = demjson3.decode(s)
 
             sub_js = js_.get('data').get('data').get('data')
             zxjg = sub_js.get('zxjg')
@@ -392,11 +392,11 @@ if __name__ == '__main__':
     _time = now.strftime('%H:%M:%S')
 
     if _time < '11:30:00':
-        TODAY += 'morning'
+        TODAY += '_morning'
     elif _time < '14:45:00':
-        TODAY += 'noon'
+        TODAY += '_noon'
     else:
-        TODAY += 'close'
+        TODAY += '_close'
         # TODAY += 'noon'
 
     app = TencentFundSpider()
