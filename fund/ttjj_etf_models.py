@@ -22,4 +22,5 @@ class IndexObject(Base):
     nv_radio = Column(FLOAT, unique=False)
     stock_num = Column(FLOAT, unique=False)
     market_value = Column(String(20), unique=False)
+    end_month=Column(Integer, unique=False)
 

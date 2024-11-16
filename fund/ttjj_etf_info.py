@@ -90,7 +90,7 @@ class IndexSpider(Fund):
         self.sess = self.get_session()()
 
     def basic_info(self,fund_code):
-        print("\n 获取基金持仓股票信息：%s" %(fund_code))
+        print(" 获取基金持仓股票信息：%s" %(fund_code))
         '''
         基本数据，没有仓位的
         拿到的只是上证的数据, ??? 中证吧
@@ -115,6 +115,10 @@ class IndexSpider(Fund):
         elif current_month>3:
             month=3
 
+        if self.getEndMonth(fund_code) ==month:
+            print("跳过")
+            return
+        self.deleteByfundCode(fund_code)
         # 生成一个0到1之间的随机浮点数
         random_number = random.random()
         # 格式化随机数，保留16位小数
@@ -172,7 +176,8 @@ class IndexSpider(Fund):
                 stock_name=name,
                 nv_radio=float(_ratio),
                 stock_num=float(_count),
-                market_value=float(price)
+                market_value=float(price),
+                end_month=month
             )
             # print(obj.stock_code)
 
@@ -197,9 +202,11 @@ class IndexSpider(Fund):
         # self.sess.execute(select_sql,("etf"))
         if self.check_content(result) :
             for code in result :
-                self.deleteByfundCode(code[0])
+                # self.deleteByfundCode(code[0])
                 # self.basic_info(code[0])
+                # 159952
                 try:
+                    # self.basic_info(516000)
                     self.basic_info(code[0])
                 except Exception as e:
                     logger.error('解析错误 {},基金：{}'.format(e, code[0]))
@@ -210,6 +217,14 @@ class IndexSpider(Fund):
         # 清理数据
         delete_sql = "delete from tb_etf_stock where fund_code =%s "
         self.execute(delete_sql, (fund_code), self.get_conn(), self.logger)
+
+    def getEndMonth(self, fund_code):
+        # 清理数据
+        select_sql = "select end_month from tb_etf_stock where fund_code =%s limit 1"
+        rt=self.execute(select_sql, (fund_code), self.get_conn(), self.logger)
+        if len(rt) <=0 : return 0
+        return int(rt[0][0]) if rt[0][0] !=None else 0
+
 
 if __name__ == '__main__':
     app = IndexSpider(first_use=True)
