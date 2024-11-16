@@ -259,8 +259,13 @@ VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)'
         if built_date=='' : built_date='1900-01-01'
         # print(scale.find("亿"))
         index=scale.find("亿")
-        scale_num=scale[0:index]
-        scale_num=float(scale_num.replace(',', ''))
+        try:
+            scale_num=scale[0:index]
+            scale_num=float(scale_num.replace(',', ''))
+        except  Exception as e:
+            scale_num=0
+            print(e)
+
         match = re.search(r'.*?截止至：(\d{4}-\d{2}-\d{2})' ,scale)
 
         if match:
@@ -358,24 +363,24 @@ if __name__ == '__main__':
     # fire.Fire(main)
     # app=TTFund()
     # app.convert_data_type()
-
-    # main(kind=1, option='basic')
-    # main(kind=1, option='info')
-    #
-    # main(kind=2,option='basic')
-    # main(kind=2, option='info')
-    #
-    # main(kind=3, option='basic')
-    # main(kind=3, option='info')
-    #
-    # main(kind=4, option='basic')
-    # main(kind=4, option='info')
-    #
-    # main(kind=5, option='basic')
-    # main(kind=5, option='info')
-    #
-    # main(kind=6, option='basic')
-    # main(kind=6, option='info')
-
-    # main(kind=8, option='basic')
+    # '指数'
+    main(kind=1, option='basic')
+    main(kind=1, option='info')
+    #'股票'
+    main(kind=2,option='basic')
+    main(kind=2, option='info')
+    #'混合'
+    main(kind=3, option='basic')
+    main(kind=3, option='info')
+    #'债券'
+    main(kind=4, option='basic')
+    main(kind=4, option='info')
+    #'qdii'
+    main(kind=5, option='basic')
+    main(kind=5, option='info')
+    # fof
+    main(kind=6, option='basic')
+    main(kind=6, option='info')
+    #'etf'
+    main(kind=8, option='basic')
     main(kind=8, option='info')
