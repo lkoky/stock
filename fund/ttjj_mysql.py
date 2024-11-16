@@ -382,5 +382,5 @@ if __name__ == '__main__':
     main(kind=6, option='basic')
     main(kind=6, option='info')
     #'etf'
-    main(kind=8, option='basic')
-    main(kind=8, option='info')
+    # main(kind=8, option='basic')
+    # main(kind=8, option='info')
