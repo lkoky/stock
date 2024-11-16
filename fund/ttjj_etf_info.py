@@ -14,6 +14,7 @@ import sys
 from parsel.selector import Selector
 from sqlalchemy.orm import sessionmaker
 from loguru import logger
+import random
 import demjson3
 import json
 sys.path.append('..')
@@ -95,11 +96,15 @@ class IndexSpider(Fund):
         '''
         # http://www.csindex.com.cn/zh-CN/search/indices?about=1
         # https://www.csindex.com.cn/zh-CN/search/indices?about=1#/indices/family/list
-        r = requests.get(url='http://fundf10.eastmoney.com/FundArchivesDatas.aspx?type=jjcc&code=%s&topline=30&year=&month=&rt=0.3874186439823959'.format(fund_code),
+        # 生成一个0到1之间的随机浮点数
+        random_number = random.random()
+        # 格式化随机数，保留16位小数
+        formatted_random_number = f"{random_number:.16f}"
+        r = requests.get(url='http://fundf10.eastmoney.com/FundArchivesDatas.aspx?type=jjcc&code={0}&topline=30&year=&month=&rt={1}'.format(fund_code,formatted_random_number),
                          headers={'User-Agent': 'Molliza Firefox Chrome'})
         endIdx=r.text.find("arryear")
         html=r.text[23:endIdx-2]
-        print(html)
+        # print(html)
         #rank_rawdata = json.loads(_json)
 
         response = Selector(text=html)
@@ -154,9 +159,11 @@ class IndexSpider(Fund):
         # self.sess.execute(select_sql,("etf"))
         if self.check_content(result) :
             for code in result :
-                self.deleteByfundCode(code)
-                self.basic_info(code)
-
+                self.deleteByfundCode(code[0])
+                try:
+                    self.basic_info(code[0])
+                except Exception as e:
+                    logger.error('解析错误 {},基金：{}'.format(e, code[0]))
     def deleteByfundCode(self, fund_code):
         # 清理数据
         delete_sql = "delete from tb_etf_stock where fund_code =%s "
