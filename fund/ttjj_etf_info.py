@@ -6,7 +6,9 @@
 
 # 重构 2021-01-21
 
-import datetime
+#import datetime
+import time
+from datetime import date
 import pymongo
 import re
 import requests
@@ -88,7 +90,7 @@ class IndexSpider(Fund):
         self.sess = self.get_session()()
 
     def basic_info(self,fund_code):
-
+        print("\n 获取基金持仓股票信息：%s" %(fund_code))
         '''
         基本数据，没有仓位的
         拿到的只是上证的数据, ??? 中证吧
@@ -96,47 +98,83 @@ class IndexSpider(Fund):
         '''
         # http://www.csindex.com.cn/zh-CN/search/indices?about=1
         # https://www.csindex.com.cn/zh-CN/search/indices?about=1#/indices/family/list
+
+        # 获取当前日期
+        today = date.today()
+        # 获取当前月份
+        current_month = today.month
+
+        # print(f"当前月份是：{current_month}月")
+        month=current_month
+        if current_month<3 :
+            month=12
+        elif current_month>9:
+            month=9
+        elif current_month>6:
+            month=6
+        elif current_month>3:
+            month=3
+
         # 生成一个0到1之间的随机浮点数
         random_number = random.random()
         # 格式化随机数，保留16位小数
         formatted_random_number = f"{random_number:.16f}"
-        r = requests.get(url='http://fundf10.eastmoney.com/FundArchivesDatas.aspx?type=jjcc&code={0}&topline=30&year=&month=&rt={1}'.format(fund_code,formatted_random_number),
-                         headers={'User-Agent': 'Molliza Firefox Chrome'})
+        _url = 'http://fundf10.eastmoney.com/FundArchivesDatas.aspx?type=jjcc&code={0}&topline=10&year=&month={1}&rt={2}'.format(
+            fund_code, month, formatted_random_number)
+        print(f"请求路径：{_url}")
+        r = requests.get(url=_url,headers = {'User-Agent': 'Molliza Firefox Chrome'})
         endIdx=r.text.find("arryear")
         html=r.text[23:endIdx-2]
         # print(html)
         #rank_rawdata = json.loads(_json)
 
         response = Selector(text=html)
-        print(response)
+        # print(response)
         table = response.xpath('//table')
         index_list = table[0].xpath('.//tbody/tr')
 
+        seen = set()
         for idx in index_list:
+            td_list = idx.xpath('.//td')
+
             seq=idx.xpath('.//td[1]/text()').extract_first()
+            seq=seq.replace("*","")
             code = idx.xpath('.//td[2]/a/text()').extract_first()
+            if code in seen:
+                continue
+            seen.add(code)
             # detail_url = idx.xpath('.//td[2]/a/@href').extract_first()
             name = idx.xpath('.//td[3]/a/text()').extract_first()
-            # 净值比例
-            _ratio=idx.xpath('.//td[7]/text()').extract_first()[:-1]
-            # 持股数量
-            _count= idx.xpath('.//td[8]/text()').extract_first()
-            _count = _count.replace(',', '')
-            # 持仓价值
-            price = idx.xpath('.//td[9]/text()').extract_first()
-            price=price.replace(',', '')
 
+            if len(td_list) > 7:
+                # 净值比例
+                _ratio=idx.xpath('.//td[7]/text()').extract_first()[:-1]
+                # 持股数量
+                _count= idx.xpath('.//td[8]/text()').extract_first()
+                # 持仓价值
+                price = idx.xpath('.//td[9]/text()').extract_first()
+            else:
+                # 净值比例
+                _ratio = idx.xpath('.//td[5]/text()').extract_first()[:-1]
+                # 持股数量
+                _count = idx.xpath('.//td[6]/text()').extract_first()
+                # 持仓价值
+                price = idx.xpath('.//td[7]/text()').extract_first()
+
+            _count = _count.replace(',', '') if _count != None else "0"
+            price = price.replace(',', '') if price != None else "0"
 
             obj = IndexObject(
                 seq=int(seq),
                 fund_code=fund_code,
                 stock_code=code,
-                # fund_url=detail_url,
-                fund_name=name,
+                # stock_url=detail_url,
+                stock_name=name,
                 nv_radio=float(_ratio),
                 stock_num=float(_count),
                 market_value=float(price)
             )
+            # print(obj.stock_code)
 
             try:
                 self.sess.add(obj)
@@ -160,10 +198,14 @@ class IndexSpider(Fund):
         if self.check_content(result) :
             for code in result :
                 self.deleteByfundCode(code[0])
+                # self.basic_info(code[0])
                 try:
                     self.basic_info(code[0])
                 except Exception as e:
                     logger.error('解析错误 {},基金：{}'.format(e, code[0]))
+
+                time.sleep(0.25)
+
     def deleteByfundCode(self, fund_code):
         # 清理数据
         delete_sql = "delete from tb_etf_stock where fund_code =%s "

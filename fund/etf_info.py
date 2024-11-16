@@ -31,7 +31,7 @@ class Fund(BaseService):
         self.engine = self.get_engine()
 
     def get_engine(self):
-        return DBSelector().get_engine('stock')
+        return DBSelector().get_engine('db_stock')
 
     def create_table(self):
         # 初始化数据库连接:
@@ -39,7 +39,6 @@ class Fund(BaseService):
 
     def get_session(self):
         return sessionmaker(bind=self.engine)
-
 
     def get(self, url, retry=5, js=True):
         start = 0
@@ -83,13 +82,11 @@ class IndexSpider(Fund):
         拿到的只是上证的数据, ??? 中证吧
         :return:
         '''
-        # http://www.csindex.com.cn/zh-CN/search/indices?about=1
-        # https://www.csindex.com.cn/zh-CN/search/indices?about=1#/indices/family/list
+
         r = requests.get(url='http://www.csindex.com.cn/zh-CN/search/indices?about=1',
                          headers={'User-Agent': 'Molliza Firefox Chrome'})
 
         response = Selector(text=r.text)
-        print(response)
         table = response.xpath('//table[@class="table table-even table-bg  tc p_table tablePage"]')
         index_list = table[0].xpath('.//tbody[@id="itemContainer"]/tr')
 
@@ -317,8 +314,8 @@ class IndexSpider(Fund):
 
 if __name__ == '__main__':
     app = IndexSpider(first_use=True)
-    app.basic_info()
+    # app.basic_info()
 
     # app.full_market()
 
-    # app.etf_detail_with_product_inuse()
+    app.etf_detail_with_product_inuse()
