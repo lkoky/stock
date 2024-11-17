@@ -6,7 +6,8 @@
 """
 
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy import Column, Integer, String, DateTime, FLOAT,TEXT
+from sqlalchemy import Column, Integer, String, DateTime, FLOAT, TEXT,Date
+
 Base = declarative_base()
 
 
@@ -15,12 +16,13 @@ class IndexObject(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     seq = Column(Integer, unique=False)
-    fund_code = Column(String(10), unique=False)
-    stock_code = Column(String(10), unique=False)
+    fund_code = Column(String(32), unique=False)
+    stock_code = Column(String(32), unique=False)
     stock_url = Column(String(100), unique=False)
-    stock_name = Column(String(20), unique=False)
+    stock_name = Column(String(100), unique=False)
     nv_radio = Column(FLOAT, unique=False)
     stock_num = Column(FLOAT, unique=False)
-    market_value = Column(String(20), unique=False)
+    market_value = Column(FLOAT, unique=False)
     end_month=Column(Integer, unique=False)
+    end_date=Column(Date, unique=False)
 
