@@ -8,7 +8,7 @@
 
 #import datetime
 import time
-from datetime import date
+from datetime import date, datetime
 import pymongo
 import re
 import requests
@@ -116,7 +116,7 @@ class IndexSpider(Fund):
             month=3
 
         if self.getEndMonth(fund_code) ==month:
-            print("跳过")
+            print("当前月份跳过")
             return
         self.deleteByfundCode(fund_code)
         # 生成一个0到1之间的随机浮点数
@@ -131,9 +131,19 @@ class IndexSpider(Fund):
         html=r.text[23:endIdx-2]
         # print(html)
         #rank_rawdata = json.loads(_json)
+        if html=='' :
+            print("获取为空")
+            return
 
         response = Selector(text=html)
         # print(response)
+        label=response.xpath('//label[@class="right lab2 xq505"]')
+        endDateStr=label[0].xpath(".//font/text()").extract_first()
+        if endDateStr != None:
+            endDate = datetime.strptime(endDateStr,"%Y-%m-%d")
+            month=endDate.month
+            print(f"月份是: {month}")
+
         table = response.xpath('//table')
         index_list = table[0].xpath('.//tbody/tr')
 
@@ -177,7 +187,8 @@ class IndexSpider(Fund):
                 nv_radio=float(_ratio),
                 stock_num=float(_count),
                 market_value=float(price),
-                end_month=month
+                end_month=month,
+                end_date=endDate
             )
             # print(obj.stock_code)
 
@@ -204,13 +215,14 @@ class IndexSpider(Fund):
             for code in result :
                 # self.deleteByfundCode(code[0])
                 # self.basic_info(code[0])
-                # 159952
+                # 511180 511380
                 try:
-                    # self.basic_info(516000)
+                    # self.deleteByfundCode(159718)
+                    # self.basic_info(159718)
+
                     self.basic_info(code[0])
                 except Exception as e:
                     logger.error('解析错误 {},基金：{}'.format(e, code[0]))
-
                 time.sleep(0.25)
 
     def deleteByfundCode(self, fund_code):
