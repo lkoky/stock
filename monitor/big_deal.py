@@ -36,8 +36,8 @@ class Monitor_Stock(BaseService):
         '''
         获取全市场
         '''
-        from configure.settings import get_tushare_pro
-        pro = get_tushare_pro()
+        from configure.settings import get_tushare_pro_xc
+        pro = get_tushare_pro_xc()
         data = pro.stock_basic(exchange='SSE', list_status='L')
         # print(data)
         data=data[~data['ts_code'].str.startswith("A")]

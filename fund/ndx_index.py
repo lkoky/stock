@@ -1,7 +1,7 @@
 import sys
 sys.path.append('..')
-from configure.settings import get_tushare_pro
-pro = get_tushare_pro()
+from configure.settings import get_tushare_pro_xc
+pro = get_tushare_pro_xc()
 # pro = ts.pro_api()
 
 # df = pro.index_weight(index_code='399300.SZ', start_date='20180901', end_date='20180930') board

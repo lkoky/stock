@@ -7,19 +7,19 @@
 
 import sys
 sys.path.append('..')
-from configure.settings import get_tushare_pro,DBSelector
-from configure.util import calendar
+from configure.settings import get_tushare_pro_xc,DBSelector
+from configure.util import calendar1
 import time
 
 class AStockDailyInfo():
 
     def __init__(self):
-        self.pro = get_tushare_pro()
-        self.conn = DBSelector().get_engine('db_stock_daily','t')
+        self.pro = get_tushare_pro_xc()
+        self.conn = DBSelector().get_engine('stock','qq')
 
 
     def run(self):
-        date = calendar('2022-01-01','2022-12-28')
+        date = calendar1('2022-01-01','2022-12-28')
 
         for d in date:
             print(d)

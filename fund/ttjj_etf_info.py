@@ -90,35 +90,32 @@ class IndexSpider(Fund):
         self.sess = self.get_session()()
 
     def basic_info(self,fund_code):
+        global endDate
         print(" 获取基金持仓股票信息：%s" %(fund_code))
-        '''
-        基本数据，没有仓位的
-        拿到的只是上证的数据, ??? 中证吧
-        :return:
-        '''
         # http://www.csindex.com.cn/zh-CN/search/indices?about=1
         # https://www.csindex.com.cn/zh-CN/search/indices?about=1#/indices/family/list
 
         # 获取当前日期
         today = date.today()
         # 获取当前月份
+        current_year = today.year
         current_month = today.month
 
         # print(f"当前月份是：{current_month}月")
         month=current_month
-        if current_month<3 :
+        if current_month>=12 or current_month<=2  :
             month=12
-        elif current_month>9:
+        elif current_month>=9 or current_month<=11 :
             month=9
-        elif current_month>6:
+        elif current_month>=6  or current_month<=8 :
             month=6
-        elif current_month>3:
+        elif current_month>=3 or current_month<=5 :
             month=3
 
-        if self.getEndMonth(fund_code) ==month:
+        if self.getEndMonth(fund_code,current_year,month) > 5:
             print("当前月份跳过")
             return
-        self.deleteByfundCode(fund_code)
+        self.delete_By_fundCode(fund_code,current_year,month)
         # 生成一个0到1之间的随机浮点数
         random_number = random.random()
         # 格式化随机数，保留16位小数
@@ -132,20 +129,23 @@ class IndexSpider(Fund):
         # print(html)
         #rank_rawdata = json.loads(_json)
         if html=='' :
-            print("获取为空")
+            self.logger.info('获取内容为空')
             return
 
         response = Selector(text=html)
+
         # print(response)
         label=response.xpath('//label[@class="right lab2 xq505"]')
         endDateStr=label[0].xpath(".//font/text()").extract_first()
         if endDateStr != None:
             endDate = datetime.strptime(endDateStr,"%Y-%m-%d")
             month=endDate.month
-            print(f"月份是: {month}")
+            # print(f"月份是: {month}")
 
         table = response.xpath('//table')
         index_list = table[0].xpath('.//tbody/tr')
+
+        print(f"基金：{fund_code}，持仓top股票数量：{len(index_list)}，截止日期：{endDateStr}")
 
         seen = set()
         for idx in index_list:
@@ -188,7 +188,8 @@ class IndexSpider(Fund):
                 stock_num=float(_count),
                 market_value=float(price),
                 end_month=month,
-                end_date=endDate
+                end_date = endDate,
+                end_year=endDate.year
             )
             # print(obj.stock_code)
 
@@ -199,6 +200,7 @@ class IndexSpider(Fund):
                 self.sess.rollback()
             else:
                 self.sess.commit()
+        time.sleep(0.25)
 
     def check_content(self, content):
         if content is None:
@@ -206,10 +208,11 @@ class IndexSpider(Fund):
             return False
         else:
             return True
-    def full_etf_fund(self):
+    def full_etf_fund(self,type="etf"):
         # 清理数据
-        select_sql = "select  fund_code  from db_ttjj_fund_ranking where fund_type =%s "
-        result=self.execute(select_sql, ("etf"), self.get_conn(), self.logger)
+        select_sql = "select fund_code from db_ttjj_fund_ranking where fund_type = %s "
+
+        result=self.execute(select_sql, (type), self.get_conn(), self.logger)
         # self.sess.execute(select_sql,("etf"))
         if self.check_content(result) :
             for code in result :
@@ -217,31 +220,34 @@ class IndexSpider(Fund):
                 # self.basic_info(code[0])
                 # 511180 511380
                 try:
-                    # self.deleteByfundCode(159718)
-                    # self.basic_info(159718)
-
+                    # self.current_year("159718")
+                    # self.basic_info("159934")
                     self.basic_info(code[0])
+
                 except Exception as e:
                     logger.error('解析错误 {},基金：{}'.format(e, code[0]))
-                time.sleep(0.25)
+                #time.sleep(0.25)
 
-    def deleteByfundCode(self, fund_code):
+    def delete_By_fundCode(self, fund_code,year,month):
         # 清理数据
-        delete_sql = "delete from tb_etf_stock where fund_code =%s "
-        self.execute(delete_sql, (fund_code), self.get_conn(), self.logger)
+        delete_sql = "delete from tb_etf_stock where fund_code =%s and end_year=%s and end_month>=%s"
+        self.execute(delete_sql, (fund_code,year,month), self.get_conn(), self.logger)
 
-    def getEndMonth(self, fund_code):
+    def getEndMonth(self, fund_code,year,month):
         # 清理数据
-        select_sql = "select end_month from tb_etf_stock where fund_code =%s limit 1"
-        rt=self.execute(select_sql, (fund_code), self.get_conn(), self.logger)
-        if len(rt) <=0 : return 0
+        # select_sql = "select count(1) from tb_etf_stock where fund_code ='%s' and end_year=%d and end_month>=%d" %(fund_code,year,month)
+        select_sql = "select count(1) from tb_etf_stock where fund_code =%s and end_year=%s and end_month>=%s"
+        rt=self.execute(select_sql, (fund_code,year,month), self.get_conn(), self.logger)
+        #if len(rt) <=0 : return 0
         return int(rt[0][0]) if rt[0][0] !=None else 0
-
 
 if __name__ == '__main__':
     app = IndexSpider(first_use=True)
     # app.basic_info()
 
-    app.full_etf_fund()
+    # 股票 混合 债券 qdii fof etf
+    app.full_etf_fund("股票")
+    # app.full_etf_fund("混合")
+    app.full_etf_fund("etf")
 
     # app.etf_detail_with_product_inuse()

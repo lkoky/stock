@@ -79,12 +79,19 @@ class DBSelector(object):
         return client
 
 
-def get_tushare_pro():
+def get_tushare_pro_xc():
     import xcsc_tushare as xc
     xc_token_pro = config.get('xc_token_pro')
     xc_server = config.get('xc_server')
     xc.set_token(xc_token_pro)
     pro = xc.pro_api(env='prd', server=xc_server)
+    return pro
+
+def get_tushare_pro():
+    import tushare as ts
+    ts_token_pro = config.get('ts_token')
+    # ts.set_token(ts_token_pro)
+    pro = ts.pro_api(ts_token_pro)
     return pro
 
 

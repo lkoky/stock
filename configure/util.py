@@ -185,8 +185,8 @@ def jsonp2json(str_):
     return json.loads(str_[str_.find('{'):str_.rfind('}') + 1])
 
 def js2json(str_):
-    import demjson
-    return demjson.decode(str_[str_.find('{'):str_.rfind('}') + 1])
+    import demjson3
+    return demjson3.decode(str_[str_.find('{'):str_.rfind('}') + 1])
 
 def bond_filter(code):
     m = re.search('^(11|12)', code)
@@ -220,15 +220,15 @@ def fmt_date(x,src='%Y%m%d',trgt='%Y-%m-%d'):
     return datetime.datetime.strptime(x, src).strftime(trgt)
 
 
-def calendar(start_date,end_date):
-    from .settings import get_tushare_pro
+def calendar1(start_date,end_date):
+    from .settings import get_tushare_pro_xc
 
     src='%Y-%m-%d'
     trgt='%Y%m%d'
     start_date = fmt_date(start_date,src,trgt)
     end_date = fmt_date(end_date,src,trgt)
 
-    pro = get_tushare_pro()
+    pro = get_tushare_pro_xc()
     df = pro.trade_cal(exchange='SSE', start_date=start_date, end_date=end_date, is_open='1')
 
     cal = df['trade_date'].tolist()
