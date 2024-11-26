@@ -17,12 +17,17 @@ class AStockBaseInfo():
     def __init__(self):
         self.pro = get_tushare_pro()
         self.conn = DBSelector().get_engine('stock','qq')
+
+    # 获取所有股票列表，保存数据库
     def save_stock_basic(self):
         data = self.pro.stock_basic(exchange='', list_status='L', fields='ts_code,symbol,name,area,industry,list_date')
-        res = data.to_sql(name='stock_basic', con=self.conn,schema='stock', index=False, if_exists='append', chunksize=5000)
+        res = data.to_sql(name='stock_basic', con=self.conn,schema='stock', index=False, if_exists='replace', chunksize=5000)
         print(res)
 
     def run(self):
+        data = self.pro.daily(ts_code='000002.SZ', start_date='20241120', end_date='20241125')
+        # data = self.pro.stock_basic(exchange='', list_status='L', fields='ts_code,symbol,name,area,industry,list_date')
+        print(data)
         print("")
 
         # date = calendar1('2022-01-01','2022-12-28')
@@ -35,7 +40,7 @@ class AStockBaseInfo():
 
 def main():
     app=AStockBaseInfo()
-    app.save_stock_basic()
+    #app.save_stock_basic()
     app.run()
 
 
