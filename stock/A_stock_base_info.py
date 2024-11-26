@@ -8,6 +8,7 @@
 import sys
 sys.path.append('..')
 from configure.settings import get_tushare_pro,DBSelector
+from rqalpha.apis import *
 import tushare as ts
 from configure.util import calendar1
 import time
@@ -25,9 +26,10 @@ class AStockBaseInfo():
         print(res)
 
     def run(self):
-        data = self.pro.daily(ts_code='000002.SZ', start_date='20241120', end_date='20241125')
+        # data = self.pro.daily(ts_code='000002.SZ', start_date='20241120', end_date='20241125')
         # data = self.pro.stock_basic(exchange='', list_status='L', fields='ts_code,symbol,name,area,industry,list_date')
-        print(data)
+        prices = history_bars("000001.XSHE", 15, '1d', 'close')
+        print(prices)
         print("")
 
         # date = calendar1('2022-01-01','2022-12-28')
