@@ -51,29 +51,29 @@ def handle_bar(context, bar_dict):
             # 如果剩余的现金不够一手 - 100shares，那么会被ricequant 的order management system reject掉
             order_value(stock, target_available_cash)
 
-# config = {
-#   "base": {
-#     "start_date": "2024-01-01",
-#     "end_date": "2024-11-21",
-#
-#     "accounts": {
-#       "stock": 100000
-#     }
-#   },
-#   "extra": {
-#     "log_level": "verbose",
-#   },
-#   "mod": {
-#     "sys_analyser": {
-#       "benchmark":"000300.XSHG",#基准参照
-#       "enabled": True,
-#       "plot": True
-#     }
-#   }
-# }
-#
-# # 您可以指定您要传递的参数
-# run_func(init=init,  handle_bar=handle_bar, config=config)
+config = {
+  "base": {
+    "start_date": "2024-01-01",
+    "end_date": "2024-11-21",
+    "accounts": {
+      "stock": 100000
+    }
+  },
+  "extra": {
+    "log_level": "verbose",
+  },
+  "mod": {
+    "sys_analyser": {
+      "benchmark":"000300.XSHG",#基准参照
+      "output_file":"result1.pkl",
+      "enabled": True,
+      "plot": True
+    }
+  }
+}
+
+# 您可以指定您要传递的参数
+run_func(init=init,  handle_bar=handle_bar, config=config)
 
 # 如果你的函数命名是按照 API 规范来，则可以直接按照以下方式来运行
 # run_func(**globals())

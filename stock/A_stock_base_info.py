@@ -21,7 +21,7 @@ class AStockBaseInfo():
     # 获取所有股票列表，保存数据库
     def save_stock_basic(self):
         data = self.pro.stock_basic(exchange='', list_status='L', fields='ts_code,symbol,name,area,industry,list_date')
-        res = data.to_sql(name='stock_basic', con=self.conn,schema='stock', index=False, if_exists='replace', chunksize=5000)
+        res = data.to_sql(name='tus_stock_basic', con=self.conn,schema='stock', index=False, if_exists='replace', chunksize=5000)
         print(res)
 
     def run(self):
